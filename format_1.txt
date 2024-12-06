@@ -1,0 +1,6 @@
+data = interpolate_trajectory_by_distance(data, 30)
+data = smoothing(data, 'savgol_filter', 5) 
+data = smoothing(data, 'rolling', 3)
+data = normalisation_1(data)
+data = smoothing(data, 'savgol_filter', 6) 
+data = interpolate_trajectory_by_distance(data, 300)
