@@ -19,7 +19,7 @@ function normalised_vector = normalisation_center(data)
     % Subtracting mean from every datapoint
     data = data - mean(data, 1);
 
-    % Subtracting mean from every datapoint
+    % Finding max distance
     max_distance = max(sqrt(sum(data.^2, 2)));
 
     % Dividing max_distance from every datapoint and adding a small value

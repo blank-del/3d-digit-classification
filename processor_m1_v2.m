@@ -1,4 +1,7 @@
 clear all; close all; clc;
+% This script combines all the training data files into one .mat file which
+% has applied transforation on the data points and has a shape of
+% (Number of columns * Number of rows * Number of files)
 
 % params
 numPoints = 300; 
@@ -22,7 +25,7 @@ for classIdx = 1:numClasses
         
         points = points.pos;
         points = process_data(points);
-        
+
         X = cat(3, X, points'); 
         Y = [Y; label];
     end
