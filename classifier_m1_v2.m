@@ -2,7 +2,7 @@ clearvars; close all; clc; clear all;
 
 
 % parameters
-rng(60);
+rng(42);
 
 % process raw data
 processed_data_location = 'data_processed_v2.mat';
@@ -16,7 +16,7 @@ X_data = X;
 Y_data = Y;
 
 
-k = 10;
+k = 5;
 
 num_samples = size(X_data, 3); % data samples
 indices = crossvalind('Kfold', num_samples, k);
