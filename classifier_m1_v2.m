@@ -1,25 +1,22 @@
-clearvars; 
-close all; 
-clc; 
-clear all;
+clearvars; close all; clc; clear all;
 
 
 % parameters
-rng(42);
+rng(60);
 
+% process raw data
+processed_data_location = 'data_processed_v2.mat';
+if exist(processed_data_location, 'file') == 0
+        disp('Processed file not found, cooking data now!');
+        processor_m1_v2();
+end
 load('data_processed_v2.mat');
-% load('labels_file.mat');
-% load('output_file.mat');
-% 
-% X_data = data;
-% Y_data = labels;
-% Y_data = categorical(Y_data);
 
 X_data = X;
 Y_data = Y;
 
 
-k = 5;
+k = 10;
 
 num_samples = size(X_data, 3); % data samples
 indices = crossvalind('Kfold', num_samples, k);
@@ -28,7 +25,8 @@ accuracies = zeros(k, 1);
 confmats = cell(k, 1);
 specificity = zeros(k, 10);
 sensitivity = zeros(k, 10);
-precision = zeros(k, 10); 
+precision = zeros(k, 10);
+accuracy = zeros(k, 10);
 f1 = zeros(k, 10);
 
 layers = [
@@ -58,7 +56,7 @@ layers = [
 
 
 % ITERATE THROUGH K-FOLD CROSS-VALIDATION
-for fold = 1:k-4
+for fold = 1:k
 
     fprintf('training fold %d of %d...\n', fold, k);
     Idx_test = (indices == fold);
@@ -66,23 +64,20 @@ for fold = 1:k-4
     
     X_train = X_data(:, :, Idx_train);
     Y_train = Y_data(Idx_train);
+
     X_test = X_data(:, :, Idx_test);
     Y_test = Y_data(Idx_test);
     
     X_train = permute(X_train, [2, 1, 3]); 
     X_train = reshape(X_train, [300, 3, 1, sum(Idx_train)]); 
-    X_train = normalize(X_train, 'range');
 
     X_test = permute(X_test, [2, 1, 3]); 
-    X_test = reshape(X_test, [300, 3, 1, sum(Idx_test)]); 
-    X_test = normalize(X_test, 'range'); 
-
-
+    X_test = reshape(X_test, [300, 3, 1, sum(Idx_test)]);  
 
 
     % DEFINE TRAINING PARAMETERS
     iteration = 0;
-    MaxEpochs = 4; % 30;
+    MaxEpochs = 10;
     miniBatchSize = 32;
     LR = 0.001;
     ValidationData = {X_test, Y_test};
@@ -100,7 +95,6 @@ for fold = 1:k-4
     
     % INITIALIZE NETWORK WITH LAYERS
     net = dlnetwork(layers);
-
     
 
     % INITIALIZE MONITOR TO FOLLOW TRAINING
@@ -119,7 +113,7 @@ for fold = 1:k-4
     Xt = dlarray(single(X_test),"SSCB");
     
     % Format validation data classes
-    Tt = zeros(numClasses, 200, "single"); % USES 200 AS LENGHT OF VALIDATION DATA
+    Tt = zeros(numClasses, length(Y_test), "single"); % USES 200 AS LENGHT OF VALIDATION DATA
     for c = 1:numClasses
         Tt(c,Y_test==classes(c)) = 1;
     end
@@ -130,7 +124,7 @@ for fold = 1:k-4
     end
 
     
-
+    tic;
 
     % BEGIN THE MAIN TRAINING LOOP
     while EpochCounter < MaxEpochs && ~monitor.Stop
@@ -186,7 +180,6 @@ for fold = 1:k-4
                 recordMetrics(monitor,iteration,ValidationLoss=validationLoss);
 
             end
-            break
     
             % Update the network parameters using the Adaptive Moment Estimation (Adam) -opimization.
             [net,averageGrad,averageSqGrad] = adamupdate(net,gradients,averageGrad,averageSqGrad,iteration);
@@ -199,99 +192,107 @@ for fold = 1:k-4
         end
     end
     
-
-
-    % for c = 1:10
-    %     TP = confmat(c, c);
-    %     FP = sum(confmat(:, c)) - TP;
-    %     FN = sum(confmat(c, :)) - TP;
-    %     TN = sum(confmat(:)) - (TP + FP + FN);
-    % 
-    %     specificity(fold, c) = TN / (TN + FP);
-    %     sensitivity(fold, c) = TP / (TP + FN);
-    %     precision(fold, c) = TP / (TP + FP);
-    %     f1(fold, c) = 2 * (precision(fold, c) * sensitivity(fold, c)) / (precision(fold, c) + sensitivity(fold, c));
-    % end
-end
-%%
-
-% Save the model and layers architechture
-save("net_newdata.mat", "net")
-save("layers.mat", "layers")
-
+    time_training = toc;
 
 Y_pred = predict(net, X_test);
 [Y_pred, rows] = find(Y_pred' == max(Y_pred'));
+% predictions are from 1-10
 Y_pred = categorical(Y_pred);
-accuracies(fold) = sum(Y_pred == Y_test) / numel(Y_test);
 
+% creating confustion matrix
 confmat = confusionmat(Y_test, Y_pred);
+
+% since the matrix is 11 by 11 it has one row of zeros in the start column
+% and zeros in the end row
 confmat = confmat(1:end-1, 2:end);
 confmats{fold} = confmat;
 
+accuracies(fold) = trace(confmat) / sum(confmat(:));
+
+    for le = 1:10
+        TP = confmat(le, le);
+        FP = sum(confmat(:, le)) - TP;
+        FN = sum(confmat(le, :)) - TP;
+        TN = sum(confmat(:)) - (TP + FP + FN);
+
+        specificity(fold, le) = TN / (TN + FP);
+        % sensitivity/recall
+        sensitivity(fold, le) = TP / (TP + FN);
+        % precision
+        precision(fold, le) = TP / (TP + FP);
+        % f1 score
+        f1(fold, le) = 2 * (precision(fold, le) * sensitivity(fold, le)) / (precision(fold, le) + sensitivity(fold, le));
+        % accuracy
+        accuracy(fold, le) = (TP)/(TP + FP + FN);
+    end
+end
+
+% Save the model and layers architechture
+% save("net_newdata.mat", "net")
+% save("layers.mat", "layers")
 
 
+% results
+% metrics efficacy
 
 
+confmat_avg = sum(cat(3, confmats{:}), 3);
+accuracy_avg = trace(confmat_avg)/sum(confmat_avg(:));
+mean_accuracies = mean(accuracy, 1);
+specificity_avg = mean(specificity, 1);
+sensitivity_avg = mean(sensitivity, 1);
+precision_avg = mean(precision, 1);
+f1_avg = mean(f1, 1);
+ 
+fprintf('accuracy: %.2f%%\n', accuracy_avg * 100);
+fprintf('specificity:\n'); disp(specificity_avg);
+fprintf('sensitivity:\n'); disp(sensitivity_avg);
+fprintf('precision:\n'); disp(precision_avg);
+fprintf('f1 score:\n'); disp(f1_avg);
 
+disp(accuracies);
+plot(1:k, accuracies, '-o');
+xlabel('Fold');
+ylabel('Accuracy');
+title('Fold-wise Accuracy');
 
-
-%results
-%metrics efficacy
-
-
-% accuracy_avg = mean(accuracies);
-% confmat_avg = sum(cat(3, confmats{:}), 3); 
-% specificity_avg = mean(specificity, 1);
-% sensitivity_avg = mean(sensitivity, 1);
-% precision_avg = mean(precision, 1);
-% f1_avg = mean(f1, 1);
-% 
-% fprintf('accuracy: %.2f%%\n', accuracy_avg * 100);
-% fprintf('specificity:\n'); disp(specificity_avg);
-% fprintf('sensitivity:\n'); disp(sensitivity_avg);
-% fprintf('precision:\n'); disp(precision_avg);
-% fprintf('f1 score:\n'); disp(f1_avg);
-% 
-% disp(accuracies);
-% plot(1:k, accuracies, '-o');
-% xlabel('Fold');
-% ylabel('Accuracy');
-% title('Fold-wise Accuracy');
-% 
 figure;
-confusionchart(confmats{1});
+confusionchart(confmat_avg);
 title('confusion matrix');
-% 
-% figure;
-% bar(specificity_avg);
-% title('specificity');
-% %ylabel('specificity');
-% xlabel('class');
-% 
-% figure;
-% bar(specificity_avg);
-% title('sensitivity');
-% %ylabel('sensitivity');
-% xlabel('class');
-% 
-% figure;
-% bar(precision_avg);
-% title('precision');
-% %ylabel('precision');
-% xlabel('class');
-% 
-% figure;
-% bar(f1_avg);
-% title('f1 score');
-% %ylabel('f1 score');
-% xlabel('class');
+
+figure;
+bar(mean_accuracies);
+title('accuracy');
+ylabel('accuracy');
+xlabel('class');
+
+figure;
+bar(specificity_avg);
+title('specificity');
+ylabel('specificity');
+xlabel('class');
+
+figure;
+bar(specificity_avg);
+title('sensitivity');
+ylabel('sensitivity');
+xlabel('class');
+
+figure;
+bar(precision_avg);
+title('precision');
+ylabel('precision');
+xlabel('class');
+
+figure;
+bar(f1_avg);
+title('f1 score');
+ylabel('f1 score');
+xlabel('class');
 
 % metrics efficiency
 % fprintf('fold %d training time: %.2f seconds\n', fold, time_training);
 % fprintf('peak GPU memory usage: %.2f MB\n', info_gpu.MemoryUsed / 1e6);
-
-
 
 % example classifications
 fprintf('example classifications...');
@@ -311,15 +312,6 @@ end
 table_examples = table(labels_true, labels_pred);
 
 disp(table_examples);
-
-%%
-
-filenumber = 213;
-plot3(X_train(:,1,1,filenumber), X_train(:,2,1,filenumber), X_train(:,3,1,filenumber), 'o')
-axis equal
-
-
-
 
 % Define the loss function (CROSS-ENTROPY LOSS)
 function [loss,gradients,state] = modelLoss(net,X,T)

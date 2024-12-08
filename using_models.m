@@ -5,8 +5,6 @@ clearvars
 load("net_newdata.mat")
 load("layers.mat")
 
-%load('labels_file.mat');
-%load('output_file.mat');
 load('data_processed_v2.mat')
 
 model = 1
