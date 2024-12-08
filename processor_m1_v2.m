@@ -1,4 +1,4 @@
-function process_m1_v2()
+function processor_m1_v2()
     % This script combines all the training data files into one .mat file which
     % has applied transforation on the data points and has a shape of
     % (Number of columns * Number of rows * Number of files)
