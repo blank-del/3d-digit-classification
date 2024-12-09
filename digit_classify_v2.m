@@ -23,9 +23,7 @@ function C = digit_classify_v2(rawPointCloud)
     load(model_location, 'net');
     load(layers_location);
     
-    testdata = process_data(rawPointCloud);
-    testdata = permute(testdata, [2, 1, 3]); 
-    testdata = reshape(testdata, [300, 3, 1, 1]);  
+    testdata = process_data(rawPointCloud);  
     
     C = predict(net, testdata);
     C = find(C == max(C));

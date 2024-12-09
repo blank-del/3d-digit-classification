@@ -2,7 +2,8 @@ clearvars; close all; clc; clear all;
 
 
 % parameters
-rng(42);
+ rng(42);
+%rng(60);
 
 % process raw data
 processed_data_location = 'data_processed_v2.mat';
@@ -77,7 +78,7 @@ for fold = 1:k
 
     % DEFINE TRAINING PARAMETERS
     iteration = 0;
-    MaxEpochs = 10;
+    MaxEpochs = 5;
     miniBatchSize = 32;
     LR = 0.001;
     ValidationData = {X_test, Y_test};
@@ -273,7 +274,7 @@ ylabel('specificity');
 xlabel('class');
 
 figure;
-bar(specificity_avg);
+bar(sensitivity_avg);
 title('sensitivity');
 ylabel('sensitivity');
 xlabel('class');
