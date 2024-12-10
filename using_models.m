@@ -1,6 +1,5 @@
-% points = csvread('testdata/testdata1h.csv');
-% prediction = digit_classify_v2(points);
-% disp(['Prediction is: ', num2str(prediction)]);
+clc
+clearvars
 
 C_pred = zeros(1000,1);
 C_data = zeros(1000,1);
@@ -10,14 +9,20 @@ C_data = zeros(1000,1);
 Data = load("testdata/rawPointClouds.mat"); 
 Data = Data.raw_pointclouds;
 
-for i = 1:1000
+% DEFINE YOUR LABEL DATA (TRUE CLASSES)
+% the provided testing labels are also the training labels!!!
+cc = ones(100,1);
+C_data = [zeros(100,1);cc;2*cc;3*cc;4*cc;5*cc;6*cc;7*cc;8*cc;9*cc];
+
+
+% Iterate through the provided data and save the classifier results
+for i = 1:numel(Data)
     pos = Data{i};
-    label = digit_classify_v2(pos);
+    label = digit_classify(pos);
     C_pred(i) = label;
-    C_data(i) = floor((i-1)/100);
 end
 
-accuracies(1) = sum(C_pred == double(C_data)) / numel(C_data);
+accuracy = sum(C_pred == double(C_data)) / numel(C_data);
 confmat = confusionmat(C_data, C_pred);
 
 figure;
